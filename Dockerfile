@@ -1,40 +1,46 @@
-FROM python:3.12-slim
+# Build an egg of your project.
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+FROM python as build-stage
 
-WORKDIR /app
+RUN pip install --no-cache-dir scrapyd-client
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    gcc \
-    curl \
-    ca-certificates \
-    libxml2-dev \
-    libxslt1-dev \
-    zlib1g-dev \
-    libffi-dev \
-    libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY requirements.txt .
-
-RUN pip install --upgrade pip setuptools wheel \
-    && pip install -r requirements.txt
+WORKDIR /workdir
 
 COPY . .
 
-RUN mkdir -p \
-    /var/lib/scrapyd/eggs \
-    /var/lib/scrapyd/logs \
-    /var/lib/scrapyd/items \
-    /var/lib/scrapyd/dbs \
-    /app/outputs \
-    /app/data
+RUN scrapyd-deploy --build-egg=myproject.egg
 
-COPY scrapyd.conf /etc/scrapyd/scrapyd.conf
+# Build the image.
+
+FROM python:alpine
+
+# Install Scrapy dependencies - and any others for your project.
+
+RUN apk --no-cache add --virtual build-dependencies \
+    gcc \
+    musl-dev \
+    libffi-dev \
+    libressl-dev \
+    libxml2-dev \
+    libxslt-dev \
+    && pip install --no-cache-dir \
+    scrapyd \
+    && apk del build-dependencies \
+    && apk add \
+    libressl \
+    libxml2 \
+    libxslt
+
+# Mount two volumes for configuration and runtime.
+
+VOLUME /etc/scrapyd/ /var/lib/scrapyd/
+
+COPY ./scrapyd.conf /etc/scrapyd/
+
+RUN mkdir -p /src/eggs/myproject
+
+COPY --from=build-stage /workdir/myproject.egg /src/eggs/myproject/1.egg
 
 EXPOSE 6800
 
-CMD ["scrapyd", "--pidfile="]
+ENTRYPOINT ["scrapyd", "--pidfile="]
