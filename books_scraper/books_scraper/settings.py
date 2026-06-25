@@ -44,7 +44,7 @@ DEFAULT_REQUEST_HEADERS = {
 # Enable or disable spider middlewares
 # See https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 SPIDER_MIDDLEWARES = {
-    "books_scraper.middlewares.BooksScraperSpiderMiddleware": 543,
+    # "books_scraper.middlewares.BooksScraperSpiderMiddleware": 543,
     "books_scraper.middlewares.RandomUserAgentMiddleware": 400,
 }
 
