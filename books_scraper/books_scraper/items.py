@@ -1,7 +1,9 @@
 import scrapy
 
 
-class Book(scrapy.Item):
+class BookItem(scrapy.Item):
+    """Structure for storing a book information."""
+
     title = scrapy.Field()
     price = scrapy.Field()
     availability = scrapy.Field()
