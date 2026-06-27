@@ -42,7 +42,7 @@ class BookSpider(scrapy.Spider):
         """Parse a category page, extract book URLs, and follow pagination."""
 
         category = response.meta["category"]
-        book_urls = response.meta["book_urls"]
+        book_urls = list(response.meta.get("book_urls", []))
 
         page_book_urls = self._extract_book_urls(response)
         book_urls.extend(page_book_urls)
@@ -55,16 +55,17 @@ class BookSpider(scrapy.Spider):
                 callback=self.parse_category,
                 meta={"category": category, "book_urls": book_urls},
             )
-        else:
-            # No more pages, yield the final list of book URLs
-            yield from self.parse_books(response, category, book_urls)
+            return
 
         selected_book_urls = self._select_random_books(
             book_urls, count=5, category=category
         )
 
         self.logger.info(
-            f"Selected {len(selected_book_urls)} out of {len(book_urls)} books from category '{category}'."
+            "Selected %d out of %d books from category '%s'.",
+            len(selected_book_urls),
+            len(book_urls),
+            category,
         )
 
         for book_url in selected_book_urls:
@@ -72,7 +73,40 @@ class BookSpider(scrapy.Spider):
                 url=book_url,
                 callback=self.parse_book,
                 meta={"category": category},
+                dont_filter=True,
             )
+            """Parse a category page, extract book URLs, and follow pagination."""
+
+            category = response.meta["category"]
+            book_urls = response.meta["book_urls"]
+
+            page_book_urls = self._extract_book_urls(response)
+            book_urls.extend(page_book_urls)
+
+            next_page_url = response.css("li.next a::attr(href)").get()
+
+            if next_page_url:
+                yield response.follow(
+                    next_page_url,
+                    callback=self.parse_category,
+                    meta={"category": category, "book_urls": book_urls},
+                )
+                return
+
+            selected_book_urls = self._select_random_books(
+                book_urls, count=5, category=category
+            )
+
+            self.logger.info(
+                f"Selected {len(selected_book_urls)} out of {len(book_urls)} books from category '{category}'."
+            )
+
+            for book_url in selected_book_urls:
+                yield scrapy.Request(
+                    url=book_url,
+                    callback=self.parse_book,
+                    meta={"category": category},
+                )
 
     def parse_book(self, response):
         """Parse a book page and extract relevant information."""
@@ -81,10 +115,17 @@ class BookSpider(scrapy.Spider):
 
         title = self._clean_text(response.css("div.product_main h1::text").get())
         price = self._clean_text(response.css("p.price_color::text").get())
-        availability = self._clean_text(response.css("p.availability::text").get())
+
+        availability = self._clean_text(
+            response.xpath(
+                "normalize-space(//p[contains(@class, 'availability')])"
+            ).get()
+        )
+
         product_url = response.url
+
         image_url = response.urljoin(
-            response.css("div.carousel-inner img::attr(src)").get()
+            response.css("div.item.active img::attr(src)").get()
         )
 
         yield BookItem(
@@ -95,7 +136,6 @@ class BookSpider(scrapy.Spider):
             image_url=image_url,
             category=category,
         )
-        
 
     def _extract_book_urls(self, response):
         """Extract absolute product URLs from the current category page."""
