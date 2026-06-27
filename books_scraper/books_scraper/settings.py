@@ -54,6 +54,8 @@ DOWNLOADER_MIDDLEWARES = {
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
     "books_scraper.pipelines.CleanDataPipeline": 300,
+    "books_scraper.pipelines.ValidationPipeline": 350,
+    "books_scraper.pipelines.SQLiteStoragePipeline": 400,
 }
 
 # Enable and configure the AutoThrottle extension (disabled by default)
