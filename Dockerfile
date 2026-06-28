@@ -1,46 +1,59 @@
-# Build an egg of your project.
+FROM python:3.12-slim AS build-stage
 
-FROM python as build-stage
-
-RUN pip install --no-cache-dir scrapyd-client
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
 
 WORKDIR /workdir
 
-COPY . .
+RUN pip install --upgrade pip setuptools wheel \
+    && pip install scrapyd-client
 
-RUN scrapyd-deploy --build-egg=myproject.egg
+COPY books_scraper ./books_scraper
 
-# Build the image.
+WORKDIR /workdir/books_scraper
 
-FROM python:alpine
+RUN scrapyd-deploy --build-egg=/tmp/books_scraper.egg
 
-# Install Scrapy dependencies - and any others for your project.
+FROM python:3.12-slim
 
-RUN apk --no-cache add --virtual build-dependencies \
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    OUTPUT_DIR=/app/outputs \
+    DATA_DIR=/app/data
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
     gcc \
-    musl-dev \
-    libffi-dev \
-    libressl-dev \
+    build-essential \
+    ca-certificates \
     libxml2-dev \
-    libxslt-dev \
-    && pip install --no-cache-dir \
-    scrapyd \
-    && apk del build-dependencies \
-    && apk add \
-    libressl \
-    libxml2 \
-    libxslt
+    libxslt1-dev \
+    zlib1g-dev \
+    libffi-dev \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Mount two volumes for configuration and runtime.
+COPY requirements.txt .
 
-VOLUME /etc/scrapyd/ /var/lib/scrapyd/
+RUN pip install --upgrade pip setuptools wheel \
+    && pip install -r requirements.txt
 
-COPY ./scrapyd.conf /etc/scrapyd/
+RUN mkdir -p \
+    /etc/scrapyd \
+    /var/lib/scrapyd/eggs/books_scraper \
+    /var/lib/scrapyd/logs \
+    /var/lib/scrapyd/items \
+    /var/lib/scrapyd/dbs \
+    /app/outputs \
+    /app/data
 
-RUN mkdir -p /src/eggs/myproject
-
-COPY --from=build-stage /workdir/myproject.egg /src/eggs/myproject/1.egg
+COPY scrapyd.conf /etc/scrapyd/scrapyd.conf
+COPY --from=build-stage /tmp/books_scraper.egg /var/lib/scrapyd/eggs/books_scraper/1.egg
 
 EXPOSE 6800
 
-ENTRYPOINT ["scrapyd", "--pidfile="]
+CMD ["scrapyd", "--pidfile="]
