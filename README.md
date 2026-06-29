@@ -175,7 +175,9 @@ Expected response:
 
 ```json
 {
+  ...
   "status": "ok"
+  ...
 }
 ```
 
@@ -189,7 +191,7 @@ scrapyd-deploy
 ```
 
 ### 5. Verify deployed projects
-
+curl "http://localhost:6800/listspiders.json?project=books_scraper"
 ```bash
 curl http://localhost:6800/listprojects.json
 ```
@@ -198,23 +200,25 @@ Expected project:
 
 ```json
 {
+  "projects": ["books_scraper"],
   "status": "ok",
-  "projects": ["books_scraper"]
+  "node_name": "example-node-name"
 }
 ```
 
 ### 6. Verify available spiders
 
 ```bash
-curl "http://localhost:6800/listspiders.json?project=books_scraper"
+
 ```
 
 Expected spider:
 
 ```json
 {
+  "spiders": ["books"],
   "status": "ok",
-  "spiders": ["books"]
+  "node_name": "example-node-name"
 }
 ```
 
@@ -232,8 +236,9 @@ Example:
 
 ```json
 {
+  "jobid": "example-job-id",
   "status": "ok",
-  "jobid": "example-job-id"
+  "node_name": "example-node-name"
 }
 ```
 
@@ -449,14 +454,14 @@ Project structure:
 books-scraper-rangon/
 ├── books_scraper/
 │   ├── books_scraper/
+│   │   ├── spiders/
+│   │   │   ├── __init__.py
+│   │   │   └── books.py
 │   │   ├── __init__.py
 │   │   ├── items.py
 │   │   ├── middlewares.py
 │   │   ├── pipelines.py
-│   │   ├── settings.py
-│   │   └── spiders/
-│   │       ├── __init__.py
-│   │       └── books.py
+│   │   └── settings.py
 │   ├── data/
 │   │   └── books.db
 │   ├── outputs/
@@ -465,6 +470,8 @@ books-scraper-rangon/
 │   │   └── books.xml
 │   ├── scrapy.cfg
 │   └── setup.py
+├── .dockerignore
+├── .gitignore
 ├── Dockerfile
 ├── LICENSE
 ├── README.md

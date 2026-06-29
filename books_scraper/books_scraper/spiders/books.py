@@ -19,14 +19,14 @@ class BookSpider(scrapy.Spider):
             "div.side_categories ul.nav-list > li > ul > li > a"
         )
 
-        self.logger.info(f"Found {len(category_links)} categories.")
+        self.logger.info("Found %d categories.", len(category_links))
 
         for category in category_links:
-            category_name = category.css("::text").get().strip()
+            category_name = self._clean_text(category.css("::text").get())
             category_url = category.css("::attr(href)").get()
 
             if not category_name or not category_url:
-                self.logger.warning(f"Skipped invalid category: {category}")
+                self.logger.warning("Skipped invalid category: %s", category)
                 continue
 
             yield response.follow(
@@ -39,7 +39,7 @@ class BookSpider(scrapy.Spider):
             )
 
     def parse_category(self, response):
-        """Parse a category page, extract book URLs, and follow pagination."""
+        """Parse category pages, collect book URLs, and follow pagination."""
 
         category = response.meta["category"]
         book_urls = list(response.meta.get("book_urls", []))
@@ -53,12 +53,17 @@ class BookSpider(scrapy.Spider):
             yield response.follow(
                 next_page_url,
                 callback=self.parse_category,
-                meta={"category": category, "book_urls": book_urls},
+                meta={
+                    "category": category,
+                    "book_urls": book_urls,
+                },
             )
             return
 
         selected_book_urls = self._select_random_books(
-            book_urls, count=5, category=category
+            book_urls=book_urls,
+            count=5,
+            category=category,
         )
 
         self.logger.info(
@@ -75,38 +80,6 @@ class BookSpider(scrapy.Spider):
                 meta={"category": category},
                 dont_filter=True,
             )
-            """Parse a category page, extract book URLs, and follow pagination."""
-
-            category = response.meta["category"]
-            book_urls = response.meta["book_urls"]
-
-            page_book_urls = self._extract_book_urls(response)
-            book_urls.extend(page_book_urls)
-
-            next_page_url = response.css("li.next a::attr(href)").get()
-
-            if next_page_url:
-                yield response.follow(
-                    next_page_url,
-                    callback=self.parse_category,
-                    meta={"category": category, "book_urls": book_urls},
-                )
-                return
-
-            selected_book_urls = self._select_random_books(
-                book_urls, count=5, category=category
-            )
-
-            self.logger.info(
-                f"Selected {len(selected_book_urls)} out of {len(book_urls)} books from category '{category}'."
-            )
-
-            for book_url in selected_book_urls:
-                yield scrapy.Request(
-                    url=book_url,
-                    callback=self.parse_book,
-                    meta={"category": category},
-                )
 
     def parse_book(self, response):
         """Parse a book page and extract relevant information."""
@@ -147,7 +120,7 @@ class BookSpider(scrapy.Spider):
         """Select random book URLs from a category."""
 
         if not book_urls:
-            self.logger.warning("Category '%s' has no books", category)
+            self.logger.warning("Category '%s' has no books.", category)
             return []
 
         if len(book_urls) < count:
