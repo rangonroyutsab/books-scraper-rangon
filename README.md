@@ -2,20 +2,23 @@
 
 ## Project Overview
 
-This project is a Scrapy-based web scraping application for extracting book data from [Books to Scrape](https://books.toscrape.com/index.html).
+This is a Scrapy project built for scraping book information from [Books to Scrape](https://books.toscrape.com/index.html).
 
-The scraper starts from the homepage, discovers all available book categories dynamically, visits each category, collects book URLs, randomly selects books from each category, extracts required product information, cleans the data through Scrapy pipelines, exports the final dataset into multiple formats, and supports deployment through Scrapyd and Docker.
+The spider starts from the homepage, finds the available book categories, goes through each category page, handles pagination, collects book links, and then randomly picks 5 books from every category. After visiting the selected book detail pages, it extracts the required information and sends the data through pipelines for cleaning, validation, database storage, and file export.
 
+The project also includes Docker and Scrapyd setup so that the spider can be run locally or through the Scrapyd API.
 
 ## Features
 
-* Dynamically discovers all book categories from the homepage
-* Avoids hardcoded category names and category URLs
-* Visits each discovered category page
-* Handles category pagination
-* Collects book detail page URLs from each category
-* Randomly selects books from each category
-* Extracts the following fields:
+The project includes the following features:
+
+* Finds book categories dynamically from the website
+* Does not use hardcoded category names or category URLs
+* Visits all discovered category pages
+* Handles pagination inside each category
+* Collects book detail page URLs
+* Randomly selects 5 books from every category
+* Extracts book information such as:
 
   * `title`
   * `price`
@@ -23,20 +26,16 @@ The scraper starts from the homepage, discovers all available book categories dy
   * `product_url`
   * `image_url`
   * `category`
-* Cleans and normalizes scraped data using Scrapy pipelines
-* Removes currency symbols from prices
+* Cleans the scraped data using Scrapy pipelines
+* Removes the currency symbol from the price
 * Converts price values into numeric format
-* Converts availability text into boolean format
-* Exports scraped data into:
+* Converts availability text into boolean values
+* Saves data into a SQLite database
+* Exports the final data into:
 
   * JSON
   * CSV
   * XML
-* Supports SQLite database storage through a Scrapy pipeline
-* Uses a custom downloader middleware for User-Agent rotation
-* Supports running locally using Scrapy
-* Supports deployment and execution through Scrapyd
-* Supports containerized deployment using Docker
 
 ## Tech Stack
 
@@ -62,9 +61,9 @@ cd books-scraper-rangon
 python3 -m venv .venv
 ```
 
-Activate the virtual environment:
+Activate the virtual environment.
 
-For Linux/macOS:
+For Linux or macOS:
 
 ```bash
 source .venv/bin/activate
@@ -76,63 +75,33 @@ For Windows PowerShell:
 .venv\Scripts\Activate.ps1
 ```
 
-### 3. Install project dependencies
+### 3. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Move into the Scrapy project directory
+### 4. Go to the Scrapy project directory
 
 ```bash
 cd books_scraper
 ```
 
-This is the directory that contains `scrapy.cfg`.
+This directory contains the `scrapy.cfg` file, so Scrapy commands should be run from here.
 
-### 5. Verify the available spiders
+### 5. Check the available spiders
 
 ```bash
 scrapy list
 ```
 
-Expected spider:
+Expected output:
 
-```bash
+```text
 books
 ```
 
-## Environment Setup
-
-The project uses default local paths for output files and database files.
-
-When running locally, generated files are stored inside the Scrapy project directory:
-
-```text
-books_scraper/
-├── outputs/
-│   ├── books.json
-│   ├── books.csv
-│   └── books.xml
-└── data/
-    └── books.db
-```
-
-The output and database paths are configured in `books_scraper/books_scraper/settings.py`.
-
-```python
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-
-OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", PROJECT_ROOT / "outputs"))
-DATA_DIR = Path(os.getenv("DATA_DIR", PROJECT_ROOT / "data"))
-
-BOOKS_SQLITE_PATH = str(DATA_DIR / "books.db")
-```
-
-Optional environment variables:
-
-
-## Running the Spider
+## Running the Spider Locally
 
 Make sure you are inside the Scrapy project directory:
 
@@ -146,10 +115,109 @@ Run the spider:
 scrapy crawl books
 ```
 
+After the spider finishes running, the output files will be created inside the `outputs/` directory.
 
-## Docker Setup Guide
+## Output Files
 
-The project includes a Dockerfile and Scrapyd configuration for containerized deployment.
+The project exports scraped data into three formats:
+
+```text
+books_scraper/
+└── outputs/
+    ├── books.json
+    ├── books.csv
+    └── books.xml
+```
+
+The project also stores the scraped data in a SQLite database:
+
+```text
+books_scraper/
+└── data/
+    └── books.db
+```
+
+## Output Format
+
+Each scraped book record contains the following fields:
+
+| Field          | Description                              | Example                                         |
+| -------------- | ---------------------------------------- | ----------------------------------------------- |
+| `title`        | Book title                               | `A Light in the Attic`                          |
+| `price`        | Cleaned numeric price                    | `51.77`                                         |
+| `availability` | Stock status as a boolean value          | `True`                                          |
+| `product_url`  | Full URL of the book detail page         | `https://books.toscrape.com/catalogue/...`      |
+| `image_url`    | Full URL of the book image               | `https://books.toscrape.com/media/cache/...jpg` |
+| `category`     | Book category collected from the website | `Poetry`                                        |
+
+### JSON example
+
+```json
+[
+    {
+        "title": "A Light in the Attic",
+        "price": 51.77,
+        "availability": true,
+        "product_url": "https://books.toscrape.com/catalogue/a-light-in-the-attic_1000/index.html",
+        "image_url": "https://books.toscrape.com/media/cache/...",
+        "category": "Poetry"
+    }
+]
+```
+
+### CSV example
+
+```csv
+title,price,availability,product_url,image_url,category
+A Light in the Attic,51.77,True,https://books.toscrape.com/catalogue/...,https://books.toscrape.com/media/cache/...,Poetry
+```
+
+### XML example
+
+```xml
+<items>
+    <item>
+        <title>A Light in the Attic</title>
+        <price>51.77</price>
+        <availability>True</availability>
+        <product_url>https://books.toscrape.com/catalogue/...</product_url>
+        <image_url>https://books.toscrape.com/media/cache/...</image_url>
+        <category>Poetry</category>
+    </item>
+</items>
+```
+
+## Database Storage
+
+The project uses a SQLite database through the `SQLiteStoragePipeline`.
+
+Database path:
+
+```text
+books_scraper/data/books.db
+```
+
+Database table:
+
+```text
+books
+```
+
+Table structure:
+
+| Column         | Type    | Description                            |
+| -------------- | ------- | -------------------------------------- |
+| `id`           | INTEGER | Auto-increment primary key             |
+| `title`        | TEXT    | Book title                             |
+| `price`        | REAL    | Book price after cleaning              |
+| `availability` | INTEGER | `1` for in stock, `0` for out of stock |
+| `product_url`  | TEXT    | Book detail page URL                   |
+| `image_url`    | TEXT    | Book image URL                         |
+| `category`     | TEXT    | Book category                          |
+
+## Docker Setup
+
+The project can also be run inside Docker with Scrapyd.
 
 ### 1. Build the Docker image
 
@@ -165,7 +233,7 @@ docker build -t books-scraper-scrapyd .
 docker run -d -p 6800:6800 --name books-scraper books-scraper-scrapyd
 ```
 
-### 3. Verify Scrapyd is running
+### 3. Check Scrapyd status
 
 ```bash
 curl http://localhost:6800/daemonstatus.json
@@ -175,54 +243,55 @@ Expected response:
 
 ```json
 {
-  ...
   "status": "ok"
-  ...
 }
 ```
 
-### 4. Deploy the Scrapy project to Scrapyd
+### 4. Deploy the project to Scrapyd
 
-From the repository root:
+Go to the Scrapy project directory:
 
 ```bash
 cd books_scraper
+```
+
+Deploy the project:
+
+```bash
 scrapyd-deploy
 ```
 
-### 5. Verify deployed projects
-curl "http://localhost:6800/listspiders.json?project=books_scraper"
+### 5. Check deployed projects
+
 ```bash
 curl http://localhost:6800/listprojects.json
 ```
 
-Expected project:
+Expected response:
 
 ```json
 {
   "projects": ["books_scraper"],
-  "status": "ok",
-  "node_name": "example-node-name"
+  "status": "ok"
 }
 ```
 
-### 6. Verify available spiders
+### 6. Check available spiders
 
 ```bash
-
+curl "http://localhost:6800/listspiders.json?project=books_scraper"
 ```
 
-Expected spider:
+Expected response:
 
 ```json
 {
   "spiders": ["books"],
-  "status": "ok",
-  "node_name": "example-node-name"
+  "status": "ok"
 }
 ```
 
-### 7. Schedule the spider through Scrapyd API
+### 7. Schedule the spider using Scrapyd
 
 ```bash
 curl -X POST http://localhost:6800/schedule.json \
@@ -230,19 +299,18 @@ curl -X POST http://localhost:6800/schedule.json \
   -d spider=books
 ```
 
-The response will contain a `jobid`.
+The response should include a `jobid`.
 
 Example:
 
 ```json
 {
   "jobid": "example-job-id",
-  "status": "ok",
-  "node_name": "example-node-name"
+  "status": "ok"
 }
 ```
 
-### 8. Check job status
+### 8. Check running and finished jobs
 
 ```bash
 curl "http://localhost:6800/listjobs.json?project=books_scraper"
@@ -255,200 +323,52 @@ docker stop books-scraper
 docker rm books-scraper
 ```
 
-## Output Format Description
-
-The project exports scraped book data into three formats using Scrapy Feed Exports.
-
-The configured output files are:
-
-```text
-outputs/books.json
-outputs/books.csv
-outputs/books.xml
-```
-
-Each exported record contains the following fields:
-
-| Field          | Description                               | Example                                         |
-| -------------- | ----------------------------------------- | ----------------------------------------------- |
-| `title`        | Book title                                | `A Light in the Attic`                          |
-| `price`        | Cleaned numeric price                     | `51.77`                                         |
-| `availability` | Boolean stock status                      | `True`                                          |
-| `product_url`  | Absolute URL of the book detail page      | `https://books.toscrape.com/catalogue/...`      |
-| `image_url`    | Absolute URL of the book image            | `https://books.toscrape.com/media/cache/...jpg` |
-| `category`     | Category name discovered from the website | `Poetry`                                        |
-
-### JSON output
-
-The JSON file contains an array of book objects.
-
-Example:
-
-```json
-[
-    {
-        "title": "A Light in the Attic",
-        "price": 51.77,
-        "availability": true,
-        "product_url": "https://books.toscrape.com/catalogue/a-light-in-the-attic_1000/index.html",
-        "image_url": "https://books.toscrape.com/media/cache/...",
-        "category": "Poetry"
-    }
-]
-```
-
-### CSV output
-
-The CSV file stores the same fields in tabular format.
-
-Example:
-
-```csv
-title,price,availability,product_url,image_url,category
-A Light in the Attic,51.77,True,https://books.toscrape.com/catalogue/...,https://books.toscrape.com/media/cache/...,Poetry
-```
-
-### XML output
-
-The XML file stores each book inside an `<item>` element.
-
-Example:
-
-```xml
-<items>
-    <item>
-        <title>A Light in the Attic</title>
-        <price>51.77</price>
-        <availability>True</availability>
-        <product_url>https://books.toscrape.com/catalogue/...</product_url>
-        <image_url>https://books.toscrape.com/media/cache/...</image_url>
-        <category>Poetry</category>
-    </item>
-</items>
-```
-
-## Database Configuration
-
-The project includes SQLite database storage support through the `SQLiteStoragePipeline`.
-
-Database path:
-
-```text
-books_scraper/data/books.db
-```
-
-Database table:
-
-```text
-books
-```
-
-Table columns:
-
-| Column         | Type    | Description                            |
-| -------------- | ------- | -------------------------------------- |
-| `id`           | INTEGER | Auto-increment primary key             |
-| `title`        | TEXT    | Book title                             |
-| `price`        | REAL    | Numeric book price                     |
-| `availability` | INTEGER | `1` for in stock, `0` for out of stock |
-| `product_url`  | TEXT    | Book detail page URL                   |
-| `image_url`    | TEXT    | Book image URL                         |
-| `category`     | TEXT    | Book category                          |
-
-To enable full validation and SQLite storage, make sure the pipeline settings include:
-
-```python
-ITEM_PIPELINES = {
-    "books_scraper.pipelines.CleanDataPipeline": 300,
-    "books_scraper.pipelines.ValidationPipeline": 350,
-    "books_scraper.pipelines.SQLiteStoragePipeline": 400,
-}
-```
-
-To inspect database records after running the spider:
-
-```bash
-python - <<'PY'
-import sqlite3
-
-conn = sqlite3.connect("data/books.db")
-cur = conn.cursor()
-
-cur.execute("SELECT COUNT(*) FROM books")
-print("Total records:", cur.fetchone()[0])
-
-cur.execute("SELECT title, price, availability, category FROM books LIMIT 5")
-for row in cur.fetchall():
-    print(row)
-
-conn.close()
-PY
-```
-
-## Architecture Diagram
+## Project Flow
 
 ```text
 scrapy crawl books
         |
         v
-scrapy.cfg
+Scrapy loads the project settings
         |
         v
-settings.py
+BooksSpider starts from the homepage
         |
         v
-Load Spider, Middleware, and Pipelines
+Category links are collected dynamically
         |
         v
-BooksSpider
+The spider visits each category page
         |
         v
-Start URL:
-https://books.toscrape.com/index.html
+Pagination links are followed
         |
         v
-Discover categories dynamically
+Book detail page URLs are collected
         |
         v
-Visit category pages
+5 books are randomly selected from each category
         |
         v
-Follow pagination
+The selected book pages are visited
         |
         v
-Collect book detail URLs
+Book data is extracted
         |
         v
-Randomly select books from category
+The item is sent to pipelines
         |
         v
-Visit selected book detail pages
+Data is cleaned and validated
         |
         v
-Extract item fields
+Data is saved to SQLite
         |
         v
-BookItem
-        |
-        v
-CleanDataPipeline
-        |
-        v
-ValidationPipeline
-        |
-        v
-SQLiteStoragePipeline
-        |
-        v
-Feed Exports + SQLite Database
-        |
-        v
-JSON / CSV / XML / books.db
+Scrapy exports data to JSON, CSV, and XML
 ```
 
 ## Folder Structure
-
-Project structure:
 
 ```text
 books-scraper-rangon/
@@ -479,25 +399,11 @@ books-scraper-rangon/
 └── scrapyd.conf
 ```
 
-Files and folders that should not be committed:
-
-```text
-__pycache__/
-*.pyc
-.scrapy/
-httpcache/
-*.egg-info/
-.eggs/
-build/
-dist/
-```
-
-
-## Design Decisions
+## Important Implementation Details
 
 ### Dynamic category discovery
 
-The spider extracts category links from the homepage instead of hardcoding category names or URLs.
+The spider collects category links from the sidebar of the homepage.
 
 Selector used:
 
@@ -505,39 +411,34 @@ Selector used:
 response.css("div.side_categories ul.nav-list > li > ul > li > a")
 ```
 
-This allows the scraper to continue working if categories are added or removed from the website.
+This was done so that the spider does not depend on fixed category names. If the website adds or removes a category, the spider can still collect the current category list from the page.
 
-### Separate spider and pipeline responsibilities
+### Spider and pipeline responsibilities
 
-The spider is responsible for:
+The spider handles the crawling part. It visits pages, follows links, collects raw values, and yields items.
 
-* Crawling pages
-* Extracting raw values
-* Following links
-* Yielding structured items
+The pipelines handle the processing part. They clean the scraped values, validate the required fields, and store the final data.
 
-The pipeline is responsible for:
+The main pipeline tasks are:
 
-* Cleaning text
-* Removing currency symbols
-* Converting price to numeric format
-* Converting availability to boolean format
-* Validating required fields
-* Storing data in SQLite
-
-This keeps the code modular and easier to maintain.
-
-
-
+* clean extra spaces from text
+* remove the pound sign from price values
+* convert price into a numeric value
+* convert availability into `True` or `False`
+* check required fields
+* save valid records into SQLite
 
 ## Known Limitations
 
-* The scraper is designed specifically for `books.toscrape.com`.
-* The website is static; this project does not handle JavaScript-rendered pages.
-* Random selection means each full run may produce different selected books.
-* Some categories may contain fewer than five books. In that case, the spider should select all available books from that category.
-* SQLite is suitable for this assignment and small datasets, but MongoDB or PostgreSQL would be better for larger production scraping systems.
-* HTTP caching may cause repeated development runs to reuse cached pages unless disabled.
-* The project does not currently include automated tests.
+* The scraper is made specifically for `books.toscrape.com`.
+* The website is static, so this project does not handle JavaScript-rendered websites.
+* SQLite is enough for this assignment, but PostgreSQL or MongoDB would be better for larger scraping projects.
 * The project does not include proxy rotation.
+* The project does not include automated tests yet.
+* Repeated development runs may reuse cached responses if HTTP caching is enabled.
+
+## Author
+
+Rangon Roy Utsab
+
 
